@@ -11,17 +11,18 @@ document.body.appendChild(canvas);
 
 const ctx = canvas.getContext("2d");
 
-// Ajout : clignotement de BoutonrougeONoffGauche dans l'iframe (change de couleur -> brun avec variation d'opacité)
+// Clignotement de BoutonrougeONoffGauche
 const iframe =
   document.querySelector('iframe[src="/Panneau.html"]') ||
   document.querySelector("iframe");
+
 if (iframe) {
   iframe.addEventListener("load", () => {
     try {
       const doc = iframe.contentDocument || iframe.contentWindow.document;
       const win = iframe.contentWindow || window;
 
-      // --- Boutonrouge existant ---
+      // Bouton rouge
       const id = "BoutonrougeONoffGauche";
       const el = doc.getElementById(id);
       if (el) {
@@ -29,6 +30,7 @@ if (iframe) {
           el.getAttribute("fill") ||
           (win.getComputedStyle ? win.getComputedStyle(el).fill : "") ||
           "#ff0000";
+
         const style = doc.createElement("style");
         style.textContent = `
           @keyframes boutonClignote {
@@ -46,11 +48,12 @@ if (iframe) {
         el.style.fill = computedFill;
       }
 
-      // --- Nouveau : Autolock ---
+      // Autolock
       const autoIds = ["A", "U", "T", "O", "L", "O2", "C", "K"];
       const firstLetterEl = autoIds
         .map((i) => doc.getElementById(i))
         .find(Boolean);
+
       const lettersFill =
         (firstLetterEl &&
           (firstLetterEl.getAttribute("fill") ||
@@ -72,10 +75,9 @@ if (iframe) {
             (win.getComputedStyle ? win.getComputedStyle(btn2).fill : ""))) ||
         "#ff00ff";
 
-      // Couleurs intermédiaires distinctes pour chaque groupe
-      const lettersMid = "#ffeb32"; // couleur pour AUTOLO2CK au milieu du clignotement
-      const btn1Mid = "#eb2020"; // couleur pour BoutonAutolock au milieu
-      const btn2Mid = "#ff2e2e"; // couleur pour BoutonAutolock2 au milieu
+      const lettersMid = "#ffeb32";
+      const btn1Mid = "#eb2020";
+      const btn2Mid = "#ff2e2e";
 
       const styleAuto = doc.createElement("style");
       styleAuto.textContent = `
@@ -84,14 +86,12 @@ if (iframe) {
           50%  { fill: var(--mid-fill); opacity: 0.7; }
           100% { fill: var(--orig-fill); opacity: 1; }
         }
-        /* règle pour mettre en pause rapidement */
         .autolock-paused {
           animation: none !important;
           opacity: 1 !important;
           fill: var(--orig-fill) !important;
           transition: none !important;
         }
-        /* Les lettres A U T O L O2 C K partagent la même animation mais leurs propres couleurs */
         ${autoIds.map((id) => `#${id}`).join(",")} {
           --orig-fill: ${lettersFill};
           --mid-fill: ${lettersMid};
@@ -104,7 +104,6 @@ if (iframe) {
       `;
       doc.head.appendChild(styleAuto);
 
-      // appliquer la couleur d'origine en inline et définir la variable mid en inline pour SVG
       autoIds.forEach((i) => {
         const e = doc.getElementById(i);
         if (e) {
@@ -127,13 +126,11 @@ if (iframe) {
         btn2.dataset.origFill = btn2Fill;
       }
 
-      // Fonction pour mettre en pause un ensemble d'éléments pendant 5s
       const pauseElements = (elements, ms = 5000) => {
         const els = elements.filter(Boolean);
         if (!els.length) return;
         els.forEach((el) => {
           el.classList.add("autolock-paused");
-          // forcer la couleur de base immédiatement
           const orig =
             el.dataset.origFill ||
             getComputedStyle(el).getPropertyValue("--orig-fill") ||
@@ -143,14 +140,12 @@ if (iframe) {
         setTimeout(() => {
           els.forEach((el) => {
             el.classList.remove("autolock-paused");
-            // restore inline fill to ensure animation picks up the var
             const orig = el.dataset.origFill;
             if (orig) el.style.fill = orig;
           });
         }, ms);
       };
 
-      // --- CHANGEMENT : construire le groupe complet Autolock (lettres + boutons) ---
       const letterElements = autoIds
         .map((i) => doc.getElementById(i))
         .filter(Boolean);
@@ -160,7 +155,6 @@ if (iframe) {
         ...(btn2 ? [btn2] : []),
       ].filter(Boolean);
 
-      // listeners : clic sur une lettre pause tout le groupe AUTOLOCK (maintenant inclut boutons)
       letterElements.forEach((el) => {
         const handler = (ev) => {
           ev.stopPropagation();
@@ -170,7 +164,6 @@ if (iframe) {
         el.addEventListener("touchstart", handler, { passive: true });
       });
 
-      // listeners : clic sur chaque bouton (ou n'importe quel layer à l'intérieur) pause tout le groupe
       const addGroupListeners = (groupEl) => {
         if (!groupEl) return;
         const layers = [groupEl].concat(
@@ -190,7 +183,7 @@ if (iframe) {
       addGroupListeners(btn1);
       addGroupListeners(btn2);
 
-      // --- Particules : partent de CentreRondCentre, rendues SOUS CentreRondCentre, limitées au bord de RondCentre ---
+      // Particules RondCentre
       (function setupRondCentreParticlesSVG() {
         const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -209,7 +202,6 @@ if (iframe) {
           svg.querySelector("defs") ||
           svg.insertBefore(doc.createElementNS(SVG_NS, "defs"), svg.firstChild);
 
-        // BBox en coordonnées SVG (viewBox)
         let rondBox = rond.getBBox();
         let centreBox = centre.getBBox();
 
@@ -230,7 +222,6 @@ if (iframe) {
 
         const { cx, cy, r } = getRondGeom();
 
-        // Clip au cercle de RondCentre (pour ne jamais dépasser)
         const clip = doc.createElementNS(SVG_NS, "clipPath");
         clip.setAttribute("id", "clipParticlesRondCentre");
         clip.setAttribute("clipPathUnits", "userSpaceOnUse");
@@ -242,7 +233,6 @@ if (iframe) {
         clip.appendChild(clipCircle);
         defs.appendChild(clip);
 
-        // Groupe particules inséré JUSTE AVANT CentreRondCentre => donc dessous visuellement
         const g = doc.createElementNS(SVG_NS, "g");
         g.setAttribute("id", "ParticlesRondCentre");
         g.setAttribute("clip-path", "url(#clipParticlesRondCentre)");
@@ -261,8 +251,8 @@ if (iframe) {
           const origin = getCentrePoint();
           for (let i = 0; i < n; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = rand(220, 520); // unités SVG / seconde
-            const maxLife = rand(0.55, 1.1); // secondes
+            const speed = rand(220, 520);
+            const maxLife = rand(0.55, 1.1);
             const size = rand(0.9, 2.2);
 
             const node = pool.pop() || doc.createElementNS(SVG_NS, "circle");
@@ -291,7 +281,6 @@ if (iframe) {
           const dt = Math.min(0.033, (now - last) / 1000);
           last = now;
 
-          // Recalage léger (si la géométrie bouge)
           if (Math.random() < 0.02) {
             const gg = getRondGeom();
             clipCircle.setAttribute("cx", String(gg.cx));
@@ -315,7 +304,6 @@ if (iframe) {
             const dy = p.y - gg.cy;
             const dist2 = dx * dx + dy * dy;
 
-            // stop au bord du RondCentre (un peu avant pour éviter "collage" visuel)
             if (p.t >= p.maxLife || dist2 >= (gg.r - 1.5) * (gg.r - 1.5)) {
               p.node.remove();
               pool.push(p.node);
@@ -335,7 +323,7 @@ if (iframe) {
         win.requestAnimationFrame(tick);
       })();
 
-      // --- BoutonsXGauche : clic => toggle opacité 10% <-> 100% + clignotement aléatoire (toutes les 3s, décalé) ---
+      // BoutonsXGauche
       const setupGaucheButtons = (groupId) => {
         const grp = doc.getElementById(groupId);
         if (!grp) return;
@@ -380,12 +368,10 @@ if (iframe) {
         grp.addEventListener("click", onClick);
         grp.addEventListener("touchstart", onClick, { passive: true });
 
-        // init clignotement une seule fois par groupe
         const initKey = `blinkInit_${groupId}`;
         if (!grp.dataset[initKey]) {
           grp.dataset[initKey] = "1";
 
-          // chaque bouton = enfant direct du groupe
           const buttons = Array.from(grp.children);
 
           buttons.forEach((btn) => {
@@ -404,7 +390,7 @@ if (iframe) {
       setupGaucheButtons("Boutons8Gauche2");
       setupGaucheButtons("Boutons8Gauche3");
 
-      // --- VisualisateurTerreTOURNER : petite rotation sur lui-même ---
+      // VisualisateurTerreTOURNER
       {
         const terre = doc.getElementById("VisualisateurTerreTOURNER");
         if (terre) {
@@ -426,7 +412,7 @@ if (iframe) {
         }
       }
 
-      // --- AiguilleVisualisateurViolet : petite rotation sur elle-même ---
+      // AiguilleVisualisateurViolet
       {
         const aiguille = doc.getElementById("AiguilleVisualisateurViolet");
         if (aiguille) {
@@ -451,11 +437,11 @@ if (iframe) {
         }
       }
 
-      // --- RondRougePetitsBoutons : base en jaune (plus foncé si rouge d'origine est plus foncé), clic => couleur d'origine ---
+      // RondRougePetitsBoutons
       {
         const BASE_YELLOW = "#FFD400";
-        const DARK_YELLOW = "#d46911"; // jaune plus foncé
-        const MID_YELLOW = "#e6a900"; // jaune intermédiaire
+        const DARK_YELLOW = "#d46911";
+        const MID_YELLOW = "#e6a900";
 
         const grp = doc.getElementById("RondRougePetitsBoutons");
         if (grp) {
@@ -473,7 +459,7 @@ if (iframe) {
             doc.body.appendChild(tmp);
             const rgb = win.getComputedStyle(tmp).color || "";
             tmp.remove();
-            return rgb; // "rgb(r,g,b)" / "rgba(...)"
+            return rgb;
           };
 
           const parseRgbString = (s) => {
@@ -489,7 +475,6 @@ if (iframe) {
           };
 
           const luminance01 = ({ r, g, b }) => {
-            // sRGB -> approx luminance [0..1]
             const sr = r / 255,
               sg = g / 255,
               sb = b / 255;
@@ -502,7 +487,7 @@ if (iframe) {
             if (!rgb) return BASE_YELLOW;
 
             const lum = luminance01(rgb);
-            // rouge sombre => jaune plus sombre
+
             if (lum < 0.35) return DARK_YELLOW;
             if (lum < 0.55) return MID_YELLOW;
             return BASE_YELLOW;
@@ -535,7 +520,6 @@ if (iframe) {
             if (s && s !== "none") node.style.stroke = s;
           };
 
-          // init : tout en jaune (variant)
           buttons.forEach((btn) => {
             allLayers(btn).forEach(cacheOrigAndSetYellow);
             btn.style.cursor = "pointer";
@@ -564,8 +548,438 @@ if (iframe) {
           );
         }
       }
-    } catch (e) {
-      /* silencieux */
-    }
+
+      // Boutons13Gauche / Boutons13GauchePASCHANGER
+      {
+        const RED_FILL_LIGHT = "#FF3B30";
+        const RED_FILL_MID = "#7A0000";
+        const RED_FILL_DARK = "#D0021B";
+
+        const RED_STROKE_LIGHT = "#FF3B30";
+        const RED_STROKE_MID = "#D0021B";
+        const RED_STROKE_DARK = "#7A0000";
+
+        const grpMain = doc.getElementById("Boutons13Gauche");
+        const grpNoChange = doc.getElementById("Boutons13GauchePASCHANGER");
+        if (grpMain && grpNoChange) {
+          const allLayers = (root) => [
+            root,
+            ...Array.from(root.querySelectorAll("*")),
+          ];
+
+          const resolveToRgb = (cssColor) => {
+            const tmp = doc.createElement("div");
+            tmp.style.color = cssColor;
+            tmp.style.position = "absolute";
+            tmp.style.left = "-9999px";
+            doc.body.appendChild(tmp);
+            const rgb = win.getComputedStyle(tmp).color || "";
+            tmp.remove();
+            return rgb;
+          };
+
+          const parseRgbString = (s) => {
+            const m = String(s).match(
+              /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/i,
+            );
+            if (!m) return null;
+            return {
+              r: Math.max(0, Math.min(255, Number(m[1]))),
+              g: Math.max(0, Math.min(255, Number(m[2]))),
+              b: Math.max(0, Math.min(255, Number(m[3]))),
+            };
+          };
+
+          const luminance01 = ({ r, g, b }) => {
+            const sr = r / 255,
+              sg = g / 255,
+              sb = b / 255;
+            return 0.2126 * sr + 0.7152 * sg + 0.0722 * sb;
+          };
+
+          const pickRedForOrig = (origCss, which = "fill") => {
+            const rgbStr = resolveToRgb(origCss);
+            const rgb = parseRgbString(rgbStr);
+            if (!rgb) return which === "stroke" ? RED_STROKE_MID : RED_FILL_MID;
+
+            const lum = luminance01(rgb);
+            if (lum < 0.35)
+              return which === "stroke" ? RED_STROKE_DARK : RED_FILL_DARK;
+            if (lum < 0.55)
+              return which === "stroke" ? RED_STROKE_MID : RED_FILL_MID;
+            return which === "stroke" ? RED_STROKE_LIGHT : RED_FILL_LIGHT;
+          };
+
+          const cacheOrigAndCacheRed = (node) => {
+            const cs = win.getComputedStyle(node);
+            const origFill = node.getAttribute("fill") || cs.fill || "";
+            const origStroke = node.getAttribute("stroke") || cs.stroke || "";
+
+            if (!node.dataset.origFill) node.dataset.origFill = origFill;
+            if (!node.dataset.origStroke) node.dataset.origStroke = origStroke;
+
+            if (!node.dataset.redFill && origFill && origFill !== "none") {
+              node.dataset.redFill = pickRedForOrig(origFill, "fill");
+            }
+            if (
+              !node.dataset.redStroke &&
+              origStroke &&
+              origStroke !== "none"
+            ) {
+              node.dataset.redStroke = pickRedForOrig(origStroke, "stroke");
+            }
+          };
+
+          const applyRed = (node) => {
+            const f = node.dataset.origFill;
+            const s = node.dataset.origStroke;
+            if (f && f !== "none")
+              node.style.fill = node.dataset.redFill || RED_FILL_MID;
+            if (s && s !== "none")
+              node.style.stroke = node.dataset.redStroke || RED_STROKE_MID;
+          };
+
+          const restoreOrig = (node) => {
+            const f = node.dataset.origFill;
+            const s = node.dataset.origStroke;
+            if (f && f !== "none") node.style.fill = f;
+            if (s && s !== "none") node.style.stroke = s;
+          };
+
+          allLayers(grpMain).forEach(cacheOrigAndCacheRed);
+
+          const setMainRedState = (on) => {
+            grpMain.dataset.isRed = on ? "1" : "0";
+            const fn = on ? applyRed : restoreOrig;
+            allLayers(grpMain).forEach(fn);
+          };
+
+          const toggleMainRedState = () => {
+            const isOn = grpMain.dataset.isRed === "1";
+            setMainRedState(!isOn);
+          };
+
+          const bindToggle = (grp) => {
+            grp.style.cursor = "pointer";
+            grp.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              toggleMainRedState();
+            });
+            grp.addEventListener(
+              "touchstart",
+              (ev) => {
+                ev.stopPropagation();
+                toggleMainRedState();
+              },
+              { passive: true },
+            );
+          };
+
+          bindToggle(grpMain);
+          bindToggle(grpNoChange);
+        }
+      }
+
+      // PetitsBoutonsGauche
+      {
+        const grp = doc.getElementById("PetitsBoutonsGauche");
+        if (grp) {
+          const getClickedButton = (target) => {
+            if (!target || target === grp) return null;
+            let btn = target;
+            while (btn && btn.parentNode && btn.parentNode !== grp)
+              btn = btn.parentNode;
+            if (!btn || btn === grp) return null;
+            return btn;
+          };
+
+          const toggleOpacity = (btn) => {
+            if (!btn) return;
+            const current = parseFloat(
+              btn.style.opacity || win.getComputedStyle(btn).opacity || "1",
+            );
+            btn.style.opacity = current <= 0.11 ? "1" : "0.1";
+          };
+
+          const handler = (ev) => {
+            const btn = getClickedButton(ev.target);
+            if (!btn) return;
+            toggleOpacity(btn);
+          };
+
+          grp.style.cursor = "pointer";
+          grp.addEventListener("click", handler);
+          grp.addEventListener("touchstart", handler, { passive: true });
+        }
+      }
+
+      {
+        const SVG_NS = "http://www.w3.org/2000/svg";
+
+        const fond30 = doc.getElementById("Fond30");
+        const chargement = doc.getElementById("Chargement30");
+
+        const text30 =
+          doc.getElementById("Texte30") ||
+          Array.from(doc.querySelectorAll("text")).find((t) => {
+            const tr = t.getAttribute("transform") || "";
+            return tr.includes("1854.41 839.24");
+          }) ||
+          null;
+
+        if (text30 && !text30.id) text30.id = "Compteur30";
+
+        if (fond30) {
+          const b = fond30.getBBox();
+          const cx = b.x + b.width / 2;
+          const cy = b.y + b.height / 2;
+
+          const COUNT_Y_OFFSET = 8;
+
+          if (text30) {
+            text30.setAttribute("text-anchor", "middle");
+            text30.setAttribute("dominant-baseline", "middle");
+            text30.setAttribute("x", String(cx));
+            text30.setAttribute("y", String(cy + COUNT_Y_OFFSET));
+            if (!text30.dataset.keepTransform30) {
+              text30.dataset.keepTransform30 = "1";
+              text30.dataset.origTransform30 =
+                text30.getAttribute("transform") || "";
+              text30.removeAttribute("transform");
+            }
+          }
+
+          if (chargement) {
+            doc.getElementById("styleChargement30")?.remove();
+            chargement.querySelector("#animChargement30")?.remove();
+
+            const anim = doc.createElementNS(SVG_NS, "animateTransform");
+            anim.setAttribute("id", "animChargement30");
+            anim.setAttribute("attributeName", "transform");
+            anim.setAttribute("attributeType", "XML");
+            anim.setAttribute("type", "rotate");
+            anim.setAttribute("from", `0 ${cx} ${cy}`);
+            anim.setAttribute("to", `360 ${cx} ${cy}`);
+            anim.setAttribute("dur", "1s");
+            anim.setAttribute("repeatCount", "indefinite");
+            anim.setAttribute("additive", "sum");
+            chargement.appendChild(anim);
+          }
+        }
+
+        const YELLOW_TYPES = {
+          BASE: "#FFD400",
+          MID: "#E6A900",
+          DARK: "#D46911",
+        };
+
+        const YELLOW_TYPE_BY_ID = {
+          RondRougeGauche: "MID",
+          RondRougeGauche2: "BASE",
+          FondRondRougeGauche: "DARK",
+
+          RondRougeDroite: "MID",
+          RondRougeDroite2: "BASE",
+          FondRondRougeDroite: "DARK",
+
+          Chargement30: "MID",
+          Fond30: "DARK",
+          Compteur30: "BASE",
+
+          SelfDestructContour: "MID",
+          TexteGauche: "BASE",
+
+          PetitsTriangles: "DARK",
+          PetitsTriangles2: "DARK",
+        };
+
+        const TARGET_IDS = [
+          "RondRougeGauche",
+          "RondRougeGauche2",
+          "FondRondRougeGauche",
+          "Chargement30",
+          "Fond30",
+          "Compteur30",
+          "RondRougeDroite2",
+          "RondRougeDroite",
+          "FondRondRougeDroite",
+          "SelfDestructContour",
+          "TexteGauche",
+
+          // AJOUT
+          "PetitsTriangles",
+          "PetitsTriangles2",
+        ];
+
+        const allLayers = (root) =>
+          root ? [root, ...Array.from(root.querySelectorAll("*"))] : [];
+
+        const cacheOrigAndCacheYellow = (node, yellowHex) => {
+          const cs = win.getComputedStyle(node);
+          const origFill = node.getAttribute("fill") || cs.fill || "";
+          const origStroke = node.getAttribute("stroke") || cs.stroke || "";
+
+          if (!node.dataset.origFill) node.dataset.origFill = origFill;
+          if (!node.dataset.origStroke) node.dataset.origStroke = origStroke;
+
+          if (!node.dataset.yellowFill && origFill && origFill !== "none") {
+            node.dataset.yellowFill = yellowHex;
+          }
+          if (
+            !node.dataset.yellowStroke &&
+            origStroke &&
+            origStroke !== "none"
+          ) {
+            node.dataset.yellowStroke = yellowHex;
+          }
+
+          if (!node.dataset.morphInit30) {
+            node.dataset.morphInit30 = "1";
+            node.dataset.origTransition30 = node.style.transition || "";
+            node.style.transition =
+              "fill 600ms ease, stroke 600ms ease, opacity 600ms ease";
+          }
+        };
+
+        const applyYellow = (node) => {
+          const f = node.dataset.origFill;
+          const s = node.dataset.origStroke;
+          if (f && f !== "none")
+            node.style.fill = node.dataset.yellowFill || "";
+          if (s && s !== "none")
+            node.style.stroke = node.dataset.yellowStroke || "";
+        };
+
+        const restoreOrig = (node) => {
+          const f = node.dataset.origFill;
+          const s = node.dataset.origStroke;
+          if (f && f !== "none") node.style.fill = f;
+          if (s && s !== "none") node.style.stroke = s;
+        };
+
+        const morphNodes = [];
+        TARGET_IDS.forEach((id) => {
+          const root = doc.getElementById(id);
+          if (!root) return;
+
+          const type = YELLOW_TYPE_BY_ID[id] || "BASE";
+          const yellowHex = YELLOW_TYPES[type] || YELLOW_TYPES.BASE;
+
+          allLayers(root).forEach((n) => {
+            cacheOrigAndCacheYellow(n, yellowHex);
+            morphNodes.push(n);
+          });
+        });
+
+        // clignotement de TexteGauche en dessous de 25s
+        const texteGauche = doc.getElementById("TexteGauche");
+        if (texteGauche) {
+          doc.getElementById("styleTexteGaucheBlink")?.remove();
+          const st = doc.createElement("style");
+          st.id = "styleTexteGaucheBlink";
+          st.textContent = `
+            @keyframes texteGaucheBlinkOpacity {
+              0%   { opacity: 1; }
+              25%  { opacity: 0.82; }
+              50%  { opacity: 0.65; }
+              75%  { opacity: 0.82; }
+              100% { opacity: 1; }
+            }
+            .texte-gauche-blink {
+              animation: texteGaucheBlinkOpacity 1.3s ease-in-out infinite;
+              will-change: opacity;
+            }
+          `;
+          doc.head.appendChild(st);
+        }
+
+        const setTexteGaucheBlink = (seconds) => {
+          if (!texteGauche) return;
+          const shouldBlink = seconds < 25;
+          if (shouldBlink) {
+            texteGauche.classList.add("texte-gauche-blink");
+          } else {
+            texteGauche.classList.remove("texte-gauche-blink");
+            texteGauche.style.opacity = "1";
+          }
+        };
+
+        const setPhase = (seconds) => {
+          const yellowPhase = seconds > 20;
+          morphNodes.forEach((n) =>
+            yellowPhase ? applyYellow(n) : restoreOrig(n),
+          );
+
+          setTexteGaucheBlink(seconds);
+        };
+
+        let __flashTimeouts30 = [];
+
+        const MORPH_TRANSITION =
+          "fill 600ms ease, stroke 600ms ease, opacity 600ms ease";
+        const FLASH_TRANSITION =
+          "fill 140ms ease-in-out, stroke 140ms ease-in-out, opacity 140ms ease-in-out";
+
+        const setFlashTransitions = (mode) => {
+          const t = mode === "flash" ? FLASH_TRANSITION : MORPH_TRANSITION;
+          morphNodes.forEach((n) => {
+            if (!n) return;
+            n.style.transition = t;
+          });
+        };
+
+        const flashAt20 = () => {
+          __flashTimeouts30.forEach((t) => win.clearTimeout(t));
+          __flashTimeouts30 = [];
+
+          setFlashTransitions("flash");
+
+          morphNodes.forEach(restoreOrig);
+
+          const STEP = 160;
+
+          __flashTimeouts30.push(
+            win.setTimeout(() => morphNodes.forEach(applyYellow), STEP),
+          );
+          __flashTimeouts30.push(
+            win.setTimeout(() => morphNodes.forEach(restoreOrig), STEP * 2),
+          );
+
+          __flashTimeouts30.push(
+            win.setTimeout(
+              () => {
+                setFlashTransitions("morph");
+                morphNodes.forEach(restoreOrig);
+              },
+              STEP * 2 + 120,
+            ),
+          );
+        };
+
+        if (text30) {
+          if (win.__walleTimer30) {
+            win.clearInterval(win.__walleTimer30);
+            win.__walleTimer30 = null;
+          }
+
+          let n = 30;
+          text30.textContent = String(n);
+          setPhase(n);
+
+          win.__walleTimer30 = win.setInterval(() => {
+            const prev = n;
+            n = n === 0 ? 30 : n - 1;
+
+            text30.textContent = String(n);
+
+            if (prev > 20 && n === 20) {
+              flashAt20();
+            } else {
+              setPhase(n);
+            }
+          }, 1000);
+        }
+      }
+    } catch (e) {}
   });
 }
