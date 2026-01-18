@@ -1102,6 +1102,40 @@ if (iframe) {
           );
         };
 
+        // Beep à partir de 20 -> 0 (1 par seconde)
+        const BEEP_SRC = "/Beep.mp3";
+        let __beepUnlocked = false;
+
+        // tentative "unlock" au premier geste utilisateur (sinon Safari/Chrome peuvent bloquer play())
+        if (!window.__beepUnlockInit) {
+          window.__beepUnlockInit = true;
+          window.addEventListener(
+            "pointerdown",
+            () => {
+              const a = new Audio(BEEP_SRC);
+              a.volume = 0;
+              const p = a.play();
+              if (p && typeof p.then === "function") {
+                p.then(() => {
+                  a.pause();
+                  a.currentTime = 0;
+                  __beepUnlocked = true;
+                }).catch(() => {
+                  // restera bloqué tant qu'il n'y a pas un geste valide
+                });
+              }
+            },
+            { once: true },
+          );
+        }
+
+        const playBeep = () => {
+          if (win.__audioState?.muted) return;
+          const a = new Audio(BEEP_SRC);
+          a.volume = 0.2;
+          a.play().catch(() => {});
+        };
+
         if (text30) {
           if (win.__walleTimer30) {
             win.clearInterval(win.__walleTimer30);
@@ -1118,6 +1152,11 @@ if (iframe) {
 
             text30.textContent = String(n);
 
+            // beep quand on vient d'atteindre 20, puis à chaque seconde jusqu'à 0
+            if (prev !== n && n <= 20) {
+              playBeep();
+            }
+
             if (prev > 20 && n === 20) {
               if (win.__rrpb) {
                 win.__rrpb.applyYellow();
@@ -1127,7 +1166,6 @@ if (iframe) {
                   __rrpbDelayTimeout = null;
                 }, RRBP_EXTRA_YELLOW_MS);
               }
-
               flashAt20();
             } else {
               setPhase(n);
@@ -1174,6 +1212,52 @@ if (iframe) {
           });
         }
       }
+
+      // Mute / ON-OFF via Bouton3CentreMUTE (agit sur tous les sons gérés par ce script)
+      {
+        if (!win.__audioState) win.__audioState = { muted: false };
+
+        const muteBtn = doc.getElementById("Bouton3CentreMUTE");
+        if (muteBtn && !muteBtn.dataset.muteInit) {
+          muteBtn.dataset.muteInit = "1";
+          muteBtn.style.cursor = "pointer";
+
+          doc.getElementById("styleMuteBtn")?.remove();
+          const st = doc.createElement("style");
+          st.id = "styleMuteBtn";
+          st.textContent = `
+            #Bouton3CentreMUTE.muted {
+              opacity: 0.35;
+            }
+          `;
+          doc.head.appendChild(st);
+
+          const syncUI = () => {
+            muteBtn.classList.toggle("muted", !!win.__audioState.muted);
+          };
+          syncUI();
+
+          const toggleMute = () => {
+            win.__audioState.muted = !win.__audioState.muted;
+            syncUI();
+          };
+
+          muteBtn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            toggleMute();
+          });
+          muteBtn.addEventListener(
+            "touchstart",
+            (ev) => {
+              ev.stopPropagation();
+              toggleMute();
+            },
+            { passive: true },
+          );
+        }
+      }
+
+      // ...existing code...
     } catch (e) {}
   });
 }
