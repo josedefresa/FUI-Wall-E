@@ -42,10 +42,34 @@ if (iframe) {
             --orig-fill: ${computedFill};
             animation: boutonClignote 1.2s linear infinite;
             transition: fill .3s, opacity .3s;
+            cursor: pointer;
+          }
+          
+          #${id}.pressed {
+            filter: opacity(0.6);
           }
         `;
         doc.head.appendChild(style);
         el.style.fill = computedFill;
+
+        if (!el.dataset.pressInit) {
+          el.dataset.pressInit = "1";
+
+          const pressOn = () => el.classList.add("pressed");
+          const pressOff = () => el.classList.remove("pressed");
+
+          el.addEventListener("pointerdown", (ev) => {
+            ev.preventDefault();
+            pressOn();
+          });
+
+          el.addEventListener("pointerup", pressOff);
+          el.addEventListener("pointercancel", pressOff);
+          el.addEventListener("pointerleave", pressOff);
+
+          win.addEventListener("pointerup", pressOff);
+          win.addEventListener("blur", pressOff);
+        }
       }
 
       // Autolock
@@ -487,7 +511,6 @@ if (iframe) {
             if (!rgb) return BASE_YELLOW;
 
             const lum = luminance01(rgb);
-
             if (lum < 0.35) return DARK_YELLOW;
             if (lum < 0.55) return MID_YELLOW;
             return BASE_YELLOW;
@@ -513,6 +536,15 @@ if (iframe) {
             }
           };
 
+          const applyYellowVariant = (node) => {
+            const f = node.dataset.origFill;
+            const s = node.dataset.origStroke;
+            if (f && f !== "none")
+              node.style.fill = node.dataset.yellowFill || f;
+            if (s && s !== "none")
+              node.style.stroke = node.dataset.yellowStroke || s;
+          };
+
           const restoreOrig = (node) => {
             const f = node.dataset.origFill;
             const s = node.dataset.origStroke;
@@ -520,8 +552,13 @@ if (iframe) {
             if (s && s !== "none") node.style.stroke = s;
           };
 
+          const rrpbNodes = new Set();
+
           buttons.forEach((btn) => {
-            allLayers(btn).forEach(cacheOrigAndSetYellow);
+            allLayers(btn).forEach((n) => {
+              cacheOrigAndSetYellow(n);
+              rrpbNodes.add(n);
+            });
             btn.style.cursor = "pointer";
           });
 
@@ -546,6 +583,13 @@ if (iframe) {
             },
             { passive: true },
           );
+
+          // expose pour le timer 30s (passage à 20s)
+          win.__rrpb = {
+            nodes: rrpbNodes,
+            applyYellow: () => rrpbNodes.forEach(applyYellowVariant),
+            restoreOrig: () => rrpbNodes.forEach(restoreOrig),
+          };
         }
       }
 
@@ -904,19 +948,116 @@ if (iframe) {
           }
         };
 
+        const HOLD_IDS = [
+          "Chargement30",
+          "Fond30",
+          "PetitsTriangles2",
+          "PetitsTriangles",
+          "Compteur30",
+          "RondRougeDroite2",
+          "RondRougeDroite",
+          "FondRondRougeDroite",
+        ];
+
+        const holdNodes = [];
+        HOLD_IDS.forEach((id) => {
+          const root = doc.getElementById(id);
+          if (!root) return;
+          allLayers(root).forEach((n) => holdNodes.push(n));
+        });
+
+        const NORMAL_TRANSITION =
+          "fill 600ms ease, stroke 600ms ease, opacity 600ms ease";
+        const HOLD_TRANSITION =
+          "fill 160ms ease, stroke 160ms ease, opacity 160ms ease";
+
+        const setTransition = (nodes, t) => {
+          nodes.forEach((n) => {
+            if (!n) return;
+            n.style.transition = t;
+          });
+        };
+
+        let currentSeconds30 = 30;
+        let isHoldingBefore20 = false;
+
+        const RRBP_EXTRA_YELLOW_MS = 450;
+        let __rrpbDelayTimeout = null;
+
+        const setHoldState = (holding) => {
+          isHoldingBefore20 = holding;
+          if (currentSeconds30 > 20) {
+            setTransition(holdNodes, HOLD_TRANSITION);
+            holdNodes.forEach(holding ? restoreOrig : applyYellow);
+          }
+        };
+
+        const bindHold = (root) => {
+          if (!root || root.dataset.holdInit20 === "1") return;
+          root.dataset.holdInit20 = "1";
+          root.style.cursor = "pointer";
+
+          const onDown = (ev) => {
+            if (currentSeconds30 <= 20) return;
+            if (ev && ev.isPrimary === false) return;
+            ev?.preventDefault?.();
+            setHoldState(true);
+          };
+
+          const onUp = () => {
+            if (!isHoldingBefore20) return;
+            setHoldState(false);
+          };
+
+          root.addEventListener("pointerdown", onDown);
+          root.addEventListener("pointerup", onUp);
+          root.addEventListener("pointercancel", onUp);
+          root.addEventListener("pointerleave", onUp);
+        };
+
+        HOLD_IDS.forEach((id) => bindHold(doc.getElementById(id)));
+        win.addEventListener("pointerup", () => {
+          if (!isHoldingBefore20) return;
+          setHoldState(false);
+        });
+        win.addEventListener("blur", () => {
+          if (!isHoldingBefore20) return;
+          setHoldState(false);
+        });
+
         const setPhase = (seconds) => {
+          currentSeconds30 = seconds;
+
           const yellowPhase = seconds > 20;
+
           morphNodes.forEach((n) =>
             yellowPhase ? applyYellow(n) : restoreOrig(n),
           );
-
           setTexteGaucheBlink(seconds);
+
+          if (win.__rrpb) {
+            if (yellowPhase) {
+              if (__rrpbDelayTimeout) win.clearTimeout(__rrpbDelayTimeout);
+              __rrpbDelayTimeout = null;
+              win.__rrpb.applyYellow();
+            } else {
+              win.__rrpb.restoreOrig();
+            }
+          }
+
+          if (yellowPhase) {
+            setTransition(holdNodes, HOLD_TRANSITION);
+            if (isHoldingBefore20) holdNodes.forEach(restoreOrig);
+            else holdNodes.forEach(applyYellow);
+          } else {
+            setTransition(holdNodes, NORMAL_TRANSITION);
+            isHoldingBefore20 = false;
+          }
         };
 
         let __flashTimeouts30 = [];
 
-        const MORPH_TRANSITION =
-          "fill 600ms ease, stroke 600ms ease, opacity 600ms ease";
+        const MORPH_TRANSITION = NORMAL_TRANSITION;
         const FLASH_TRANSITION =
           "fill 140ms ease-in-out, stroke 140ms ease-in-out, opacity 140ms ease-in-out";
 
@@ -939,10 +1080,15 @@ if (iframe) {
           const STEP = 160;
 
           __flashTimeouts30.push(
-            win.setTimeout(() => morphNodes.forEach(applyYellow), STEP),
+            win.setTimeout(() => {
+              morphNodes.forEach(applyYellow);
+            }, STEP),
           );
+
           __flashTimeouts30.push(
-            win.setTimeout(() => morphNodes.forEach(restoreOrig), STEP * 2),
+            win.setTimeout(() => {
+              morphNodes.forEach(restoreOrig);
+            }, STEP * 2),
           );
 
           __flashTimeouts30.push(
@@ -973,11 +1119,59 @@ if (iframe) {
             text30.textContent = String(n);
 
             if (prev > 20 && n === 20) {
+              if (win.__rrpb) {
+                win.__rrpb.applyYellow();
+                if (__rrpbDelayTimeout) win.clearTimeout(__rrpbDelayTimeout);
+                __rrpbDelayTimeout = win.setTimeout(() => {
+                  win.__rrpb?.restoreOrig();
+                  __rrpbDelayTimeout = null;
+                }, RRBP_EXTRA_YELLOW_MS);
+              }
+
               flashAt20();
             } else {
               setPhase(n);
             }
           }, 1000);
+        }
+      }
+
+      // Bouton6Centre : clignotement aléatoire
+      {
+        const grp = doc.getElementById("Bouton6Centre");
+        if (grp && !grp.dataset.randomBlinkInit) {
+          grp.dataset.randomBlinkInit = "1";
+
+          const MIN_OPACITY = 0.5; // <-- plus élevé (avant: 0.12)
+          const MAX_OPACITY = 1;
+          const MIN_INTERVAL_MS = 700;
+          const MAX_INTERVAL_MS = 2600;
+          const TRANSITION = "opacity 260ms ease-in-out";
+
+          const buttons = Array.from(grp.children);
+
+          const randInt = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
+
+          const toggle = (btn) => {
+            const current = parseFloat(
+              btn.style.opacity || win.getComputedStyle(btn).opacity || "1",
+            );
+            btn.style.opacity =
+              current <= MIN_OPACITY + 0.02
+                ? String(MAX_OPACITY)
+                : String(MIN_OPACITY);
+          };
+
+          buttons.forEach((btn) => {
+            btn.style.transition = TRANSITION;
+
+            const loop = () => {
+              toggle(btn);
+              win.setTimeout(loop, randInt(MIN_INTERVAL_MS, MAX_INTERVAL_MS));
+            };
+
+            win.setTimeout(loop, randInt(0, MAX_INTERVAL_MS));
+          });
         }
       }
     } catch (e) {}
