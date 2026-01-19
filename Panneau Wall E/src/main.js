@@ -757,6 +757,41 @@ if (iframe) {
         }
       }
 
+      // PetitsBoutonsCentre
+      {
+        const grp = doc.getElementById("PetitsBoutonsCentre");
+        if (grp && !grp.dataset.opacityToggleInit) {
+          grp.dataset.opacityToggleInit = "1";
+
+          const getClickedButton = (target) => {
+            if (!target || target === grp) return null;
+            let btn = target;
+            while (btn && btn.parentNode && btn.parentNode !== grp)
+              btn = btn.parentNode;
+            if (!btn || btn === grp) return null;
+            return btn;
+          };
+
+          const toggleOpacity = (btn) => {
+            if (!btn) return;
+            const current = parseFloat(
+              btn.style.opacity || win.getComputedStyle(btn).opacity || "1",
+            );
+            btn.style.opacity = current <= 0.11 ? "1" : "0.1";
+          };
+
+          const handler = (ev) => {
+            const btn = getClickedButton(ev.target);
+            if (!btn) return;
+            toggleOpacity(btn);
+          };
+
+          grp.style.cursor = "pointer";
+          grp.addEventListener("click", handler);
+          grp.addEventListener("touchstart", handler, { passive: true });
+        }
+      }
+
       {
         const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -1106,7 +1141,6 @@ if (iframe) {
         const BEEP_SRC = "/Beep.mp3";
         let __beepUnlocked = false;
 
-        // tentative "unlock" au premier geste utilisateur (sinon Safari/Chrome peuvent bloquer play())
         if (!window.__beepUnlockInit) {
           window.__beepUnlockInit = true;
           window.addEventListener(
@@ -1120,9 +1154,7 @@ if (iframe) {
                   a.pause();
                   a.currentTime = 0;
                   __beepUnlocked = true;
-                }).catch(() => {
-                  // restera bloqué tant qu'il n'y a pas un geste valide
-                });
+                }).catch(() => {});
               }
             },
             { once: true },
@@ -1152,7 +1184,7 @@ if (iframe) {
 
             text30.textContent = String(n);
 
-            // beep quand on vient d'atteindre 20, puis à chaque seconde jusqu'à 0
+            // beep
             if (prev !== n && n <= 20) {
               playBeep();
             }
@@ -1213,7 +1245,7 @@ if (iframe) {
         }
       }
 
-      // Mute / ON-OFF via Bouton3CentreMUTE (agit sur tous les sons gérés par ce script)
+      // Mute / ON-OFF via Bouton3CentreMUTE
       {
         if (!win.__audioState) win.__audioState = { muted: false };
 
@@ -1256,8 +1288,6 @@ if (iframe) {
           );
         }
       }
-
-      // ...existing code...
     } catch (e) {}
   });
 }
